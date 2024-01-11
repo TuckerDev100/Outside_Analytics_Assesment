@@ -1,0 +1,36 @@
+.elevator-select-container {
+  max-height: 500px;
+  max-width: 500px;
+  overflow-y: auto;
+  border: 2px solid black;
+  align-items: center;
+  margin-right: 60px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+}
+
+.elevator-select-scrollable {
+  max-height: 400px;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.floor-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 5px;
+  border: 1px solid black;
+}
+
+.yellow {
+  background-color: yellow;
+}
+
+.white {
+  background-color: white;
+}

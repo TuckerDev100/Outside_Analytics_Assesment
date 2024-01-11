@@ -1,5 +1,5 @@
 import { Direction } from "src/enums/Direction";
-
+import eventEmitter from './eventEmitter';
 export interface ElevatorState {
   emergencyStop: boolean;
   fireMode: boolean;
@@ -11,31 +11,40 @@ export interface ElevatorState {
   totalFloors: number;
   direction: Direction;
   currFloor: number;
+  nextFloor: number;
   doorOpen: boolean;
   dockRequests: number[];
-  upRequests: number[];
-  downRequests: number[];
   logDone: boolean;
   nap: boolean;
+
+  waitDuration: number;
 }
 
 export default class ElevatorCar {
+
+  travelTime!: number;
+  floorsStoppedAt!: number[];
+
+  totalFloors!: number;
+  currFloor!: number;
+  nextFloor!: number;
+  dockRequests!: number[];
+
+  direction: Direction = Direction.None;
+  
+  doorOpen!: boolean;
+
+  logDone!: boolean;
+  nap!: boolean;
+
   emergencyStop!: boolean;
   fireMode!: boolean;
   doorStuck!: boolean;
   maxWeight!: number;
   currWeight!: number;
-  travelTime!: number;
-  floorsStoppedAt!: number[];
-  totalFloors!: number;
-  direction: Direction = Direction.None;
-  currFloor!: number;
-  doorOpen!: boolean;
-  dockRequests!: number[];
-  upRequests!: number[];
-  downRequests!: number[];
-  logDone!: boolean;
-  nap!: boolean;
+  waitDuration!: number;
+
+
 
   constructor(state: ElevatorState) {
     this.updateState({
@@ -49,13 +58,16 @@ export default class ElevatorCar {
       totalFloors: state.totalFloors,
       direction: state.direction,
       currFloor: state.currFloor,
+      nextFloor: state.nextFloor,
       doorOpen: state.doorOpen,
       dockRequests: state.dockRequests || [],
-      upRequests: state.upRequests,
-      downRequests: state.downRequests,
       logDone: state.logDone,
       nap: state.nap,
     });
+  }
+
+  updateState(newState: Partial<ElevatorState>): void {
+    Object.assign(this, newState);
   }
 
   public logState(): void {
@@ -70,286 +82,185 @@ export default class ElevatorCar {
       totalFloors: this.totalFloors,
       direction: this.direction,
       currFloor: this.currFloor,
+      nextFloor: this.nextFloor,
       doorOpen: this.doorOpen,
       dockRequests: this.dockRequests,
-      upRequests: this.upRequests,
-      downRequests: this.downRequests,
       logDone: this.logDone,
+      waitDuration: this.waitDuration,
       nap: this.nap,
     };
 
-    //NOTE - yes console logs are bad, but this is the MVP way of communicating the travelTime and floorStopped at.
     console.log("Elevator State:", elevatorState);
   }
 
-  updateState(newState: Partial<ElevatorState>): void {
-    Object.assign(this, newState);
-}
 
-  wakeUpElevator(): void | null {  
-    //NOTE - the safety check should happen first. Ideally you only turn on an elevator once. If it is being turned on, there is a non-zero chance that it is recovering from a blackout or other emergency. Hence the safety check.
+  async wakeUpElevator(): Promise<void | null> {
     if (!this.safetyCheck()) {
       return null;
     }
-  
+
+    console.log('wakeup called')
+
     this.removeRequestsEqualToCurrFloor();
+     this.setInitialDirection();
+  }
+
+  public setInitialDirection(): void {
+    const aboveRequests = this.dockRequests.filter((floor) => floor > this.currFloor);
+    const belowRequests = this.dockRequests.filter((floor) => floor < this.currFloor);
   
-    if (this.dockRequests.length > 0) {
-      this.handleDockRequests();
+    if (aboveRequests.length > belowRequests.length) {
+      this.direction = Direction.Up;
+    } else if (aboveRequests.length < belowRequests.length) {
+      this.direction = Direction.Down;
     } else {
-      this.handleNonDockRequests();
+      const closestAbove = Math.min(...aboveRequests, this.totalFloors);
+      const closestBelow = Math.max(...belowRequests, 1);
+    
+      // Factor in the position of currFloor
+      const aboveDistance = Math.abs(closestAbove - this.currFloor);
+      const belowDistance = Math.abs(closestBelow - this.currFloor);
+    
+      this.direction = aboveDistance < belowDistance ? Direction.Up : Direction.Down;
     }
-  
-    this.moveFloor();
+    this.controlLoop();
   }
 
-  private noRequestsBelow(): boolean {
-    return (
-        (this.direction === "down" && !this.dockRequests.some((floor) => floor < this.currFloor)) ||
-        (this.direction === "up" && !this.downRequests.some((floor) => floor < this.currFloor))
-    );
-}
-
-
-private noRequestsAbove(): boolean {
-  return (
-      (this.direction === "up" && !this.dockRequests.some((floor) => floor > this.currFloor)) ||
-      (this.direction === "down" && !this.upRequests.some((floor) => floor > this.currFloor))
-  );
-}
-  
-handleDockRequests(): void {
-  const upDockRequests = this.countRequestsAbove(this.dockRequests);
-  const downDockRequests = this.countRequestsBelow(this.dockRequests);
-
-  this.direction = upDockRequests > downDockRequests
-    ? Direction.Up
-    : downDockRequests > upDockRequests
-      ? Direction.Down
-      : this.chooseDirectionBasedOnClosestFloors();
-}
-
-handleNonDockRequests(): void {
-  const totalUpRequests = this.countRequestsAbove(this.upRequests);
-  const totalDownRequests = this.countRequestsBelow(this.downRequests);
-
-  if (totalUpRequests === totalDownRequests) {
-    this.direction = this.chooseDirectionBasedOnClosestFloors();
-  } else {
-    this.direction = totalUpRequests > totalDownRequests ? Direction.Up : Direction.Down;
-  }
-}
-
-chooseDirectionBasedOnClosestFloors(): Direction {
-  const closestUpFloor = this.findClosestFloor(this.upRequests);
-  const closestDownFloor = this.findClosestFloor(this.downRequests);
-
-  if (this.upRequests.length === 0 && this.downRequests.length === 0) {
-    return Direction.Down;
-  }
-
-  const closestUpDiff = Math.abs(closestUpFloor - this.currFloor);
-  const closestDownDiff = Math.abs(closestDownFloor - this.currFloor);
-
-  if (closestUpDiff < closestDownDiff) {
-    return Direction.Up;
-  } else if (closestDownDiff < closestUpDiff) {
-    return Direction.Down;
-  } else {
-    return Direction.Down;
-  }
-}
-
-private countRequestsAbove(requests: number[]): number {
-  return requests.filter(floor => floor > this.currFloor).length;
-}
-
-private countRequestsBelow(requests: number[]): number {
-  return requests.filter(floor => floor < this.currFloor).length;
-}
-
-private findClosestFloor(requests: number[]): number {
-  return requests.length > 0 ? Math.min(...requests) : this.totalFloors;
-}
-  
-  
 
   removeRequestsEqualToCurrFloor(): void {
     this.dockRequests = this.dockRequests.filter(
       (floor) => floor !== this.currFloor
     );
-    this.upRequests = this.upRequests.filter(
-      (floor) => floor !== this.currFloor
-    );
-    this.downRequests = this.downRequests.filter(
-      (floor) => floor !== this.currFloor
-    );
   }
 
-  async routeCheck(): Promise<void | null> {
-    if (!this.safetyCheck()) {
-      return null;
+  routeCheck(): void {
+    switch (true) {
+      case this.currFloor === this.totalFloors:
+        this.direction = Direction.Down;
+        break;
+      
+      case this.currFloor === 1:
+        this.direction = this.dockRequests.length > 0 ? Direction.Up : Direction.None;
+        break;
+  
+      case this.dockRequests.length > 0:
+        switch (this.direction) {
+          case Direction.Up:
+            if (this.dockRequests.some((floor) => floor > this.currFloor)) {
+              this.direction = Direction.Up;
+            } else if (this.dockRequests.some((floor) => floor < this.currFloor) && !this.dockRequests.some((floor) => floor > this.currFloor)) {
+              this.direction = Direction.Down;
+            }
+            break;
+  
+          case Direction.Down:
+            if (this.dockRequests.some((floor) => floor < this.currFloor)) {
+              this.direction = Direction.Down;
+            } else if (this.dockRequests.some((floor) => floor > this.currFloor) && !this.dockRequests.some((floor) => floor < this.currFloor)) {
+              this.direction = Direction.Up;
+            }
+            break;
+  
+          default:
+            break;
+        }
+        break;
+  
+      default:
+        this.direction = this.currFloor > 1 ? Direction.Down : Direction.None;
+        break;
     }
-
-    if (this.noRequests()) {
-      this.logState();
-      return null;
-    }
-
-    if (this.direction === Direction.Up && this.upRequests.some((floor) => floor > this.currFloor)) {
-      this.direction = Direction.Up;
-      this.moveFloor();
-      this.logDone = false; 
-      return null;
-    }
-
-    if (this.direction === Direction.Down && this.downRequests.some((floor) => floor < this.currFloor)) {
-      this.direction = Direction.Down;
-      this.moveFloor();
-      this.logDone = false; 
-      return null;
-    }
-
-    if (
-      (this.direction === Direction.Down && this.dockRequests.some((floor) => floor < this.currFloor)) ||
-      (this.direction === Direction.Up && this.dockRequests.some((floor) => floor > this.currFloor))
-    ) {
-      this.moveFloor();
-      this.logDone = false; 
-      return null;
-    }
-
-    if (this.direction === Direction.Down && this.noRequestsBelow()) {
-      this.direction = Direction.Up;
-      this.moveFloor();
-      this.logDone = false; 
-      return null;
-    } else if (this.direction === Direction.Up && this.noRequestsAbove()) {
-      this.direction = Direction.Down;
-      this.moveFloor();
-      this.logDone = false; 
-      return null;
-    }
-
-    if (this.noRequests()) {
-      // this.rest(); // Was in the middle of implementing the rest() method
-    }
-
-    return null;
   }
+  
+  
+  
+  
+  
 
 
-  dock(): void {
-    //NOTE - This is a little silly as is. Ideally you would have a system or switch that would physically verify that the elevator has stopped, 
-    // another one to verify that the door has opened successfully, and another one to verify that the door has closed successfully before
-    //moving the elevator. This is because it is VERY IMPORTANT to make sure the elevator doors are fully closed before moving it
-    //TODO add a stop elevator method
-    //TODO add a door opening method
-    this.removeRequestsEqualToCurrFloor();
-    //TODO add a weight check method
-    //TODO add a door closing method
+
+  moveFloor(floor: number): void {
+
+    console.log(`Processing floor ${floor}`);
+
+    let isDocking = false;
+
+    if(this.dockRequests.includes(this.currFloor)){
+      isDocking = true;
+    }
+    this.waitDuration = isDocking ? 5 : 1;
+    this.travelTime += this.waitDuration;
+
+  
+    if (isDocking) {
+
+      console.log(`Docking at floor ${floor}`);
+
+      this.floorsStoppedAt.push(floor);
+      this.removeRequestsEqualToCurrFloor();
+      this.dock();
+    }
   }
+  
 
-  dockCheck(): void {
-    let dockPerformed = false;
-
-    const dockIfNeeded = (floor: number): void => {
-      if (this.currFloor === floor) {
-        dockPerformed = true;
-        this.travelTime += 5;
-        console.log(`docking at floor: ${this.currFloor}`);
-        this.dock();
-        this.floorsStoppedAt.push(this.currFloor);
-      }
+  private async controlLoop(): Promise<void> {
+    this.waitDuration = 1;
+    this.nap = false;
+    const updateDockRequestsHandler = () => {
+      this.dockRequests = this.dockRequests.slice();
     };
-
-    if (this.dockRequests.includes(this.currFloor)) {
-      dockIfNeeded(this.currFloor);
-    } else if (
-      this.direction === "up" &&
-      this.upRequests.includes(this.currFloor)
-    ) {
-      dockIfNeeded(this.currFloor);
-    } else if (
-      this.direction === "down" &&
-      this.downRequests.includes(this.currFloor)
-    ) {
-      dockIfNeeded(this.currFloor);
-    }
-
-    if (!dockPerformed) {
-      this.travelTime += 1;
-    }
-
-    setTimeout(() => {
+  
+    eventEmitter.on('updateDockRequests', updateDockRequestsHandler);
+  
+    while (this.direction !== Direction.None) {
+      this.moveFloor(this.currFloor);
+      await this.delay(this.waitDuration);
+      console.log(`Waited for ${this.waitDuration} seconds`);
+      eventEmitter.emit('updateDockRequests');
+      eventEmitter.emit('updateElevatorModel');
       this.routeCheck();
-    }, 0);
+      console.log(`${this.direction}`);
+  
+      if (this.direction === Direction.Up) {
+        this.currFloor += 1;
+      } else if (this.direction === Direction.Down) {
+        this.currFloor -= 1;
+      }
+    }
+  
+    eventEmitter.off('updateDockRequests', updateDockRequestsHandler);
+    this.rest();
+  }
+  
+
+
+  private rest(): void {
+    console.log("Resting...");
+  
+    const updateDockRequestsHandler = () => {
+      console.log("Received updateDockRequests during rest. Waking up elevator.");
+      this.wakeUpElevator();
+  
+      eventEmitter.off('updateDockRequests', updateDockRequestsHandler);
+    };
+  
+    eventEmitter.on('updateDockRequests', updateDockRequestsHandler);
   }
 
-  moveFloor(): void {
-    if (this.logDone && this.currFloor > 0) {
-      this.currFloor--;
-    } else if (this.direction === "up" && this.currFloor < this.totalFloors) {
-      this.currFloor++;
-    } else if (this.direction === "down" && this.currFloor > 0) {
-      this.currFloor--;
-    }
 
+private async delay(seconds: number): Promise<void> {
+  return new Promise(resolve => {
     setTimeout(() => {
-      this.dockCheck();
-    }, 0);
-  }
-
-  async rest(): Promise<void> {
-    if (this.currFloor === 0 && !this.nap && this.noRequests()) {
-      if (!this.logDone) {
-        this.logState();
-        this.logDone = true;
-      }
-
-      this.nap = true;
-    }
-
-    await this.waitForRequestsOrTimeout();
-
-    if (this.noRequests()) {
-      this.nap = false;
-      this.logDone = false; 
-      this.direction = Direction.Down; 
-      this.routeCheck(); 
-    }
-
-    if (this.currFloor === 0 && this.noRequests()) {
-      this.routeCheck();
-    }
-  }
-
-  async waitForRequestsOrTimeout(): Promise<void> {
-    const delayInSeconds = 10;
-    const startTime = new Date().getTime();
-
-    while (new Date().getTime() - startTime < delayInSeconds * 1000) {
-      if (this.noRequests()) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100)); 
-    }
-
-    this.routeCheck();
-  }
+      resolve();
+    }, seconds * 1000);
+  });
+}
 
 
-  noRequests(): boolean {
-    return (
-      this.dockRequests.length === 0 &&
-      this.upRequests.length === 0 &&
-      this.downRequests.length === 0
-    );
-  }
 
 
   safetyCheck(): boolean {
-    //NOTE ideally this should run asynchrously constantly and interrupt all other elevator functions at a moments notice
+    //NOTE ideally this should run asynchronously constantly and interrupt all other elevator functions at a moment's notice
     if (this.emergencyStop) {
       this.invokeEmergencyStop();
       return false;
@@ -366,6 +277,17 @@ private findClosestFloor(requests: number[]): number {
     } else {
       return true;
     }
+  }
+
+  dock(): void {
+    //NOTE - This is a little silly as is. Ideally, you would have a system or switch that would physically verify that the elevator has stopped,
+    // another one to verify that the door has opened successfully, and another one to verify that the door has closed successfully before
+    // moving the elevator. This is because it is VERY IMPORTANT to make sure the elevator doors are fully closed before moving it
+    //TODO add a stop elevator method
+    //TODO add a door opening method
+    //TODO add a weight check method
+    //TODO add a door closing method. if a person or thing blocks the elevator door, it should stop. 
+    // This is the diff between putting your hand in the door being a friendly gesture hold the elevator and cutting your hand off.
   }
 
   invokeEmergencyStop(): void {

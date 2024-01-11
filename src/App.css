@@ -2,6 +2,15 @@
   text-align: center;
 }
 
+.meme-container img {
+  position: absolute;
+  top: 400px;
+  left: 0;
+  z-index: 0; 
+  width: 20%;
+  height: auto;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -37,10 +46,21 @@
   }
 }
 
+.app-container {
+  text-align: center;
+}
+
 .centered-container {
+  margin: 0 auto;
+  max-width: 800px;
+  text-align: left; 
+}
+
+.columns-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh; /* Set the height to 100% of the viewport height */
+  justify-content: space-between;
+}
+
+.column {
+  width: 30%;
 }
