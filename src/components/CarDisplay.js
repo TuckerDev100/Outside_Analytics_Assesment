@@ -5,7 +5,7 @@ import './CarDisplay.css'
 const CarDisplay = ({ elevatorInstance }) => {
   const [floorsStoppedAt, setFloorsStoppedAt] = useState([]);
   const [travelTime, setTravelTime] = useState(0);
-  const [currFloor, setCurrFloor] = useState(0); // Add state for current floor
+  const [currFloor, setCurrFloor] = useState(0); 
   const [dockRequests, setDockRequests] = useState([]); // Add state for current floor
 
 

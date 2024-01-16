@@ -194,7 +194,7 @@ export default class ElevatorCar {
     this.nap = false;
 
     const updateDockRequestsHandler = () => {
-      this.dockRequests = this.dockRequests.slice(); // Creates a shallow copy to prevent race conditions
+      this.dockRequests = this.dockRequests.slice(); // Create a shallow copy to prevent race conditions
     };
   
     eventEmitter.on('updateDockRequests', updateDockRequestsHandler);
@@ -264,7 +264,7 @@ private async delay(seconds: number): Promise<void> {
     //NOTE - This is a little silly as is. Ideally, you would have a system or switch that would physically verify that the elevator has stopped,
     // another one to verify that the door has opened successfully, and another one to verify that the door has closed successfully before
     // moving the elevator. This is because it is VERY IMPORTANT to make sure the elevator doors are fully closed before moving it
-    //TODO add a stop elevator method
+    //TODO add an emergency stop elevator method
     //TODO add a door opening method
     //TODO add a weight check method
     //TODO add a door closing method. if a person or thing blocks the elevator door, it should stop. 

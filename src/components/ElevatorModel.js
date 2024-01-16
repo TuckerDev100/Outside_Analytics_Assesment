@@ -21,12 +21,11 @@ const ElevatorModel = ({ elevatorInstance }) => {
       generateFloors();
     };
     eventEmitter.on('updateElevatorModel', updateElevatorModel);
-    console.log(` MODEL RENDERING CURRFLOOR: ${elevatorInstance.currFloor}`);
 
     return () => {
       eventEmitter.off('updateElevatorModel', updateElevatorModel);
     };
-  }, [totalFloors, currFloor]);
+  }, [currFloor]);
 
   useEffect(() => {
     generateFloors();
