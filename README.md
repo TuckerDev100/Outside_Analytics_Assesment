@@ -31,12 +31,6 @@ Submit
 
 This is the only elevator for the building.
 
-The elevator will consist of two parts, The ElevatorCar and the ElevatorSystem. The ElevatorCar represents the elevator itself.
-
-The ElevatorSystem represents users making requests to go up and down on each floor.
-
-When calling the Elevator using the buttons, Users will have a choice to select if they wish to go up or down.
-Some elevators just have a singular call button, but this one has two.
 
 Whether a user wants to go up or down, if the elevator stops at their floor they will get on/off regardless of the intentions of the elevator.
 
@@ -71,37 +65,29 @@ but that is an acceptable trade off. Just like how in parking lots there are alm
 than are neccessary, serving everyone takes priority over maximum efficiency.
 
 # What did I do well?
-I am proud of the ElevatorCar class. I designed it in a way that it will efficeintly handle most scenarios. 
+The elevator will go in the direction that has the most requests. If there are an equal number of requests, it will pick the direction with the closest floor. If both directions have floors that are equally close, it will default to down.
 
-I also mocked up features that are beyond the scope of the assignment, but any reasonalbe elevator should have.
+It listens for live input. It will not change direction if there are still requests in that direction, but it will put the requests in order and service them in turn. After it is done, it will go to the bottom floor and wait. It will begin again once it gets new requests.
+
+I also mocked up features that are beyond the scope of the assignment, but any reasonalbe elevator should have, like a fire mode, a check if the door has successfully closed, and an emergency stop.
 I took the assignment to be *simulate* an Elevator, not write an elevator algorithm to get certain outputs. I think my
 elevator is well thought out.
 
-Good tests. This project took too long, so I had to comment out some tests and features to get out an MVP. However,
-the behaviors that are tested are tested thouroughly and the testing framework is set up. It will be very easy for
-me or another dev to continue where I left off and write good readable tests that verify behavior
-
 
 # What can I improve on?
-The UI obviously. While it could be said that UI is not super important for elevator logic, this is an interview assesment
-and presentation matters. The UI is ugly, has no input validation or error handling, and was clearly an afterthought. 
-If I was doing this assignment again, I would get the Elevator logic to meet the only the MVP of the business logic requirments,
-get the UI to an if not pretty at least reasonable state, then focus on good elevator featurs that are not relevant to the MVP.
+Tests! During rev 1 of the elevator, I wrote tests for most of the functions in ElevatorCar. However, I did a major refactor to make it visually render it and make it take live input from the user. Most of my previous tests no longer work. In a production environment, I would need to have all behaviors tested before deploying.
 
-I took a bit longer than I would have liked. I committed too hard to extra features and thinking about all the things an elevator
-should do and have. Again, I would have benifitted from a more narrow focus on an MVP that only meets the requirements outlined, 
-submitting that, and THEN circling back and adding the simulation aspects.
+Tests are SUPER important. They are like saving your game in a video game. Without tests, you don't know if new changes have undone all of your progress. However, I think this highlights the proper place of tests: they should be written after you get the behavior you want. Write tests too early, and you will have to re-write your tests. Write tests too late, and you are never coming back to it and the next time the code is changed it is likely to break.
+
+It is quite ugly. I am not a designer. Not to say that I cannot design, that just means there is more of a learning curve. Also, a real elevator would not even have a UI, save the buttons, so I felt comfortable de-prioritizing making it look nice.
 
 # Next steps
-Assuming that I continue on this elevator project, again I would make the UI better.
-
-After initialization, while the elevator is running I want to add timouts or asyncs to make it take longer to move from one floor to another
-While the elevator is running, the user should be able to enter what floor they are on and what floor they want to go to using 
-a more fleshed out ElevatorSystem class. This should then translate that into upRequests and downRequests, which are converted into dockRequests 
-once the elevator picks up the request. This should use state to live update dockRequests, upRequest, and downRequest and put them in their proper queues.
-
-After the elevator has serviced all requests, it should head to the ground floor, assuming it is not interrupted by more requests on its way down.
-Once it it at the ground floor, It should log the floors it visited and the time it took to a log file. This is data that can be help optimize the elevator later. Once it is at the ground floor it should enter a power saving mode where it checks for new requests periodically.
 
 Normal actions of the elevator should be interruptable in the event of a safety condition. This includes someone hitting an emergency stop button,
 the elevator being over weight, the door failing to shut, or a firefighter inserting a key into the the fire keyhole. 
+
+After the elevator has rested, it should log the info on how many floors it serviced and how long it took to a log file. This could produce useful insights on how the elevator is used.
+
+I could add support for screen readers to the app.
+
+I can make the app look nicer. Maybe have an Elevator sprite instead of an X, and I could animate the door opening and closing. I could also stream some elevator music.
