@@ -1,6 +1,6 @@
 import { Direction } from "src/enums/Direction";
 import eventEmitter from './eventEmitter';
-export interface ElevatorState {
+export interface ElevatorState { //The rules for how other parts of the app can interact with ElevatorState.
   emergencyStop: boolean;
   fireMode: boolean;
   doorStuck: boolean;
@@ -16,14 +16,16 @@ export interface ElevatorState {
   dockRequests: number[];
   logDone: boolean;
   nap: boolean;
-
   waitDuration: number;
 }
 
+
 export default class ElevatorCar {
 
-  travelTime!: number;
-  floorsStoppedAt!: number[];
+  travelTime!: number; //The exclamation points are to tell TS not to complain about the variable being used before it is assigned.
+  //If I wanted to assign a default value I would do it like this
+  // travelTime: number = 0;
+  floorsStoppedAt!: number[]; 
 
   totalFloors!: number;
   currFloor!: number;
@@ -99,8 +101,6 @@ export default class ElevatorCar {
       return null;
     }
 
-    console.log('wakeup called')
-
     this.removeRequestsEqualToCurrFloor();
      this.setInitialDirection();
   }
@@ -113,11 +113,11 @@ export default class ElevatorCar {
       this.direction = Direction.Up;
     } else if (aboveRequests.length < belowRequests.length) {
       this.direction = Direction.Down;
+      // NOTE In the case where there are an equal number of requests above and below, it should set direction towards the closest floor with a dockRequest
     } else {
       const closestAbove = Math.min(...aboveRequests, this.totalFloors);
       const closestBelow = Math.max(...belowRequests, 1);
     
-      // Factor in the position of currFloor
       const aboveDistance = Math.abs(closestAbove - this.currFloor);
       const belowDistance = Math.abs(closestBelow - this.currFloor);
     
@@ -135,14 +135,16 @@ export default class ElevatorCar {
 
   routeCheck(): void {
     switch (true) {
+      // NOTE if we are at the top floor, direction should be down.
       case this.currFloor === this.totalFloors:
         this.direction = Direction.Down;
         break;
-      
+      // NOTE if we are at the bottom floor, direction should be up.
       case this.currFloor === 1:
         this.direction = this.dockRequests.length > 0 ? Direction.Up : Direction.None;
         break;
   
+        // NOTE if there are still dockRequests in the current direction, keep going that way. Otherwise reverse.
       case this.dockRequests.length > 0:
         switch (this.direction) {
           case Direction.Up:
@@ -171,31 +173,15 @@ export default class ElevatorCar {
         break;
     }
   }
-  
-  
-  
-  
-  
-
-
 
   moveFloor(floor: number): void {
-
-    console.log(`Processing floor ${floor}`);
-
     let isDocking = false;
-
     if(this.dockRequests.includes(this.currFloor)){
       isDocking = true;
     }
     this.waitDuration = isDocking ? 5 : 1;
     this.travelTime += this.waitDuration;
-
-  
     if (isDocking) {
-
-      console.log(`Docking at floor ${floor}`);
-
       this.floorsStoppedAt.push(floor);
       this.removeRequestsEqualToCurrFloor();
       this.dock();
@@ -206,8 +192,9 @@ export default class ElevatorCar {
   private async controlLoop(): Promise<void> {
     this.waitDuration = 1;
     this.nap = false;
+
     const updateDockRequestsHandler = () => {
-      this.dockRequests = this.dockRequests.slice();
+      this.dockRequests = this.dockRequests.slice(); // Creates a shallow copy to prevent race conditions
     };
   
     eventEmitter.on('updateDockRequests', updateDockRequestsHandler);
@@ -215,11 +202,9 @@ export default class ElevatorCar {
     while (this.direction !== Direction.None) {
       this.moveFloor(this.currFloor);
       await this.delay(this.waitDuration);
-      console.log(`Waited for ${this.waitDuration} seconds`);
       eventEmitter.emit('updateDockRequests');
       eventEmitter.emit('updateElevatorModel');
       this.routeCheck();
-      console.log(`${this.direction}`);
   
       if (this.direction === Direction.Up) {
         this.currFloor += 1;
@@ -227,7 +212,7 @@ export default class ElevatorCar {
         this.currFloor -= 1;
       }
     }
-  
+
     eventEmitter.off('updateDockRequests', updateDockRequestsHandler);
     this.rest();
   }
@@ -235,16 +220,12 @@ export default class ElevatorCar {
 
 
   private rest(): void {
-    console.log("Resting...");
-  
     const updateDockRequestsHandler = () => {
-      console.log("Received updateDockRequests during rest. Waking up elevator.");
       this.wakeUpElevator();
-  
       eventEmitter.off('updateDockRequests', updateDockRequestsHandler);
     };
-  
-    eventEmitter.on('updateDockRequests', updateDockRequestsHandler);
+    eventEmitter.on('updateDockRequests', updateDockRequestsHandler); //This emitter listens for new dockRequests from ElevatorSelect.
+    //when it hears them, it kicks off the loop again.
   }
 
 
@@ -287,7 +268,7 @@ private async delay(seconds: number): Promise<void> {
     //TODO add a door opening method
     //TODO add a weight check method
     //TODO add a door closing method. if a person or thing blocks the elevator door, it should stop. 
-    // This is the diff between putting your hand in the door being a friendly gesture hold the elevator and cutting your hand off.
+    // This is the diff between putting your hand in the door being a friendly gesture hold the elevator, and getting your hand cut off.
   }
 
   invokeEmergencyStop(): void {

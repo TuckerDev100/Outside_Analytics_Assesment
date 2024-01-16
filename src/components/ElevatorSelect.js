@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import './ElevatorSelect.css';
 import eventEmitter from './eventEmitter';
 
-const ElevatorSelect = ({ elevatorInstance, updateElevatorCar }) => {
-  const { totalFloors, dockRequests } = elevatorInstance;
-  const [floorsData, setFloorsData] = useState([]);
+const ElevatorSelect = ({ elevatorInstance }) => {
+  const { totalFloors, dockRequests } = elevatorInstance; //props passed in for initial render
+  const [floorsData, setFloorsData] = useState([]); // local state used to update selected floors.
 
   const generateFloorsData = () => {
     const newFloorsData = Array.from({ length: totalFloors }, (_, index) => {
@@ -34,7 +34,7 @@ const ElevatorSelect = ({ elevatorInstance, updateElevatorCar }) => {
     };
   }, [dockRequests]);
 
-  useEffect(() => {
+  useEffect(() => { //runs on initial render
     generateFloorsData();
   }, [totalFloors, dockRequests]);
 
