@@ -15,7 +15,6 @@ export interface ElevatorState { //The rules for how other parts of the app can 
   doorOpen: boolean;
   dockRequests: number[];
   logDone: boolean;
-  nap: boolean;
   waitDuration: number;
 }
 
@@ -37,7 +36,6 @@ export default class ElevatorCar {
   doorOpen!: boolean;
 
   logDone!: boolean;
-  nap!: boolean;
 
   emergencyStop!: boolean;
   fireMode!: boolean;
@@ -64,7 +62,6 @@ export default class ElevatorCar {
       doorOpen: state.doorOpen,
       dockRequests: state.dockRequests || [],
       logDone: state.logDone,
-      nap: state.nap,
     });
   }
 
@@ -89,7 +86,6 @@ export default class ElevatorCar {
       dockRequests: this.dockRequests,
       logDone: this.logDone,
       waitDuration: this.waitDuration,
-      nap: this.nap,
     };
 
     console.log("Elevator State:", elevatorState);
@@ -139,7 +135,7 @@ export default class ElevatorCar {
       case this.currFloor === this.totalFloors:
         this.direction = Direction.Down;
         break;
-      // NOTE if we are at the bottom floor, direction should be up.
+      // NOTE if we are at the bottom floor, direction should be up, except if there are no dockRequests.
       case this.currFloor === 1:
         this.direction = this.dockRequests.length > 0 ? Direction.Up : Direction.None;
         break;
@@ -191,7 +187,6 @@ export default class ElevatorCar {
 
   private async controlLoop(): Promise<void> {
     this.waitDuration = 1;
-    this.nap = false;
 
     const updateDockRequestsHandler = () => {
       this.dockRequests = this.dockRequests.slice(); // Create a shallow copy to prevent race conditions
@@ -213,7 +208,7 @@ export default class ElevatorCar {
       }
     }
 
-    eventEmitter.off('updateDockRequests', updateDockRequestsHandler);
+    eventEmitter.off('updateDockRequests', updateDockRequestsHandler); //turning this off helps prevent asynch hiccups.
     this.rest();
   }
   

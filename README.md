@@ -31,7 +31,6 @@ Submit
 
 This is the only elevator for the building.
 
-
 Whether a user wants to go up or down, if the elevator stops at their floor they will get on/off regardless of the intentions of the elevator.
 
 It takes 10 seconds to go from one floor to another. I assume this means onloading a passenger, going to the next floor, and then offloading the passenger.
